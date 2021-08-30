@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 from celery import task
 
 from .models import Setting
+from django.conf import settings as conf_settings
 
 import requests
 import json
@@ -123,10 +124,10 @@ def handle_bedroom_temperature_detector(response):
 
 ###################################################
 def post_sensor(name, value):
-    headers = {'Authorization': 'Bearer {}'.format(SMART_HOME_ACCESS_TOKEN)}
+    headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}
     data = {'name': name, 'value': value}
     text = '{"controllers": ['+json.dumps(data)+']}'
-    r = requests.post(SMART_HOME_API_URL, headers=headers, data=text)
+    r = requests.post(conf_settings.SMART_HOME_API_URL, headers=headers, data=text)
 
 def set_boiler(state):
     post_sensor("boiler",state)
@@ -136,12 +137,11 @@ def set_washing_machine(state):
 
 
 def get_hot_water_target_temperature():
-    #TODO get from sqlile
-    return 0
+    return int(Setting.objects.get(controller_name="hot_water_target_temperature").value)
+
 
 def get_bedroom_target_temperature():
-    #TODO get from sqlile
-    return 0
+    return int(Setting.objects.get(controller_name="bedroom_target_temperature").value)
 
 def set_air_conditioner(state):
     post_sensor("air_conditioner",state)
@@ -151,10 +151,9 @@ def set_air_conditioner(state):
 def smart_home_manager():
     # Здесь ваш код для проверки условий
 
-
-    headers = {'Authorization': 'Bearer {}'.format(SMART_HOME_ACCESS_TOKEN)}  
-    r = requests.get(SMART_HOME_API_URL, headers=headers)
-
+    headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}  
+    r = requests.get(conf_settings.SMART_HOME_API_URL, headers=headers)
+      
     handle_leak_detector(r)
     handle_cold_water_detector(r)
     handle_boiler_temperature_detector(r)

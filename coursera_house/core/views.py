@@ -2,6 +2,8 @@ from django.urls import reverse_lazy
 from django.views.generic import FormView
 from django.conf import settings as conf_settings
 
+from django.http import HttpResponse, JsonResponse
+
 from .models import Setting
 from .form import ControllerForm
 import requests, json
@@ -28,3 +30,33 @@ class ControllerView(FormView):
 
     def form_valid(self, form):
         return super(ControllerView, self).form_valid(form)
+
+
+    def post(self, request):
+
+        try:
+            #document = json.loads(request.body)
+            #validate(document, REVIEW_SCHEMA)
+            #form = ControllerForm(request.POST)
+            bl = request.POST.get("bedroom_light")
+            bedroom_light = bl if bl is not None else "off"
+            ba_l = request.POST.get("bathroom_light")
+            bathroom_light = ba_l if ba_l is not None else "off"
+            
+            print("bedroom_target_temperature - " + request.POST.get("bedroom_target_temperature"))
+            print("hot_water_target_temperature - " + request.POST.get("hot_water_target_temperature"))
+            print("bedroom_light - " + bedroom_light )
+            print("bedroom_light - " + bathroom_light)
+
+            #item = Setting.objects.get(id=item_id)
+            #review = Review(text=document['text'],
+            #                grade=document['grade'],
+            #                item_id=item.pk)
+            #review.save()
+        except Exception as exc:
+            print(exc)
+            return HttpResponse(status=404)
+        #except (json.JSONDecodeError, ValidationError):
+        #    return HttpResponse(status=400)
+
+        return super().post(request)

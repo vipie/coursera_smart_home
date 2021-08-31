@@ -3,11 +3,10 @@ from celery import task
 
 from .models import Setting
 from django.conf import settings as conf_settings
+from django.core.mail import send_mail
 
 import requests
 import json
-
-
 
 def get_sensors_dict(response):
     all_states = json.loads(response.text)
@@ -25,7 +24,8 @@ def handle_leak_detector(response):
     leak_detector = get_sensors_dict(response)['leak_detector']
     
     if leak_detector['value']:
-        send_mail('leak_detector = True')
+        send_mail('coursera smart house message', 'Attention: leak_detector = True ',
+            'from@example.com',[conf_settings.EMAIL_RECEPIENT], fail_silently=True)
         set_close_water(False)
         set_hot_water(False)
         
@@ -122,6 +122,21 @@ def handle_bedroom_temperature_detector(response):
     if bedroom_temperature['value'] < bedroom_target_temperature*0.9:
         set_air_conditioner(False)
 
+
+def handle_bathroom_light(response):
+
+    setting = get_setting('bathroom_light')
+
+    if Setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
+        set_bathroom_light(bool(setting))
+
+
+def handle_bedroom_light(response):
+    setting = get_setting('bedroom_light')
+
+    if Setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
+        set_bedroom_light(bool(setting))
+
 ###################################################
 def post_sensor(name, value):
     headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}
@@ -136,16 +151,27 @@ def set_washing_machine(state):
     post_sensor("washing_machine",state)
 
 
-def get_hot_water_target_temperature():
-    return int(Setting.objects.get(controller_name="hot_water_target_temperature").value)
+def get_setting(setting_name):
+    if Setting.objects.filter(controller_name=setting_name).exists():
+        return int(Setting.objects.get(controller_name=setting_name).value)
+    else:
+        return None
 
+def get_hot_water_target_temperature():
+    return get_setting("hot_water_target_temperature")
 
 def get_bedroom_target_temperature():
-    return int(Setting.objects.get(controller_name="bedroom_target_temperature").value)
+    return get_setting("bedroom_target_temperature")
 
 def set_air_conditioner(state):
     post_sensor("air_conditioner",state)
     
+def set_bathroom_light(state):
+    post_sensor("bathroom_light",state)
+    
+def set_bedroom_light(state):
+    post_sensor("bedroom_light",state)
+
 
 @task()
 def smart_home_manager():
@@ -160,5 +186,7 @@ def smart_home_manager():
     handle_curtains_detector(r)
     handle_smoke_detector(r)
     handle_bedroom_temperature_detector(r)
+    handle_bedroom_light(r)
+    handle_bathroom_light(r)
 
-    pass
+    

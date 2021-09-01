@@ -65,10 +65,10 @@ def handle_boiler_temperature_detector(response):
 
     if detector['value'] < 0.9*hot_water_target_temperature and \
         get_sensors_dict(response)['cold_water']['value'] and not smoke_detector['value']:
-        return set_boiler(True)
+        return [set_boiler(True)]
                     
     if detector['value'] >= 1.1*hot_water_target_temperature:
-        return set_boiler(False)
+        return [set_boiler(False)]
         
 @return_list
 def handle_curtains_detector(response):

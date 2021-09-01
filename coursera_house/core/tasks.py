@@ -134,14 +134,14 @@ def handle_bathroom_light(response):
 
     setting = get_setting('bathroom_light')
 
-    if Setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
+    if setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
         return [set_bathroom_light(bool(setting))]
 
 @return_list
 def handle_bedroom_light(response):
     setting = get_setting('bedroom_light')
 
-    if Setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
+    if setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
         return [set_bedroom_light(bool(setting))]
 
 ###################################################
@@ -151,7 +151,7 @@ def post_sensor(name, value):
 def send_post(list_of_dicts):
     if list_of_dicts is None or len(list_of_dicts)==0:
         return
-        
+
     headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}
     contrs = {"controllers": list_of_dicts}
     text = json.dumps(contrs)
@@ -159,10 +159,10 @@ def send_post(list_of_dicts):
     r = requests.post(conf_settings.SMART_HOME_API_URL, headers=headers, data=text)
 
 def set_boiler(state):
-    post_sensor("boiler",state)
+    return post_sensor("boiler",state)
 
 def set_washing_machine(state):
-    post_sensor("washing_machine",state)
+    return post_sensor("washing_machine",state)
 
 
 def get_setting(setting_name):
@@ -178,22 +178,22 @@ def get_bedroom_target_temperature():
     return get_setting("bedroom_target_temperature")
 
 def set_air_conditioner(state):
-    post_sensor("air_conditioner",state)
+    return post_sensor("air_conditioner",state)
     
 def set_bathroom_light(state):
-    post_sensor("bathroom_light",state)
+    return post_sensor("bathroom_light",state)
     
 def set_bedroom_light(state):
-    post_sensor("bedroom_light",state)
+    return post_sensor("bedroom_light",state)
         
 def set_cold_water(state):
-    post_sensor("cold_water",state)
+    return post_sensor("cold_water",state)
 
 def set_hot_water(state):
-    post_sensor("hot_water",state)
+    return post_sensor("hot_water",state)
 
 def set_curtains(state):
-    post_sensor("curtains",state)
+    return post_sensor("curtains",state)
 
 @task()
 def smart_home_manager():

@@ -35,7 +35,8 @@ def handle_leak_detector(response):
     if leak_detector['value']:
         send_mail('coursera smart house message', 'Attention: leak_detector = True ',
             'from@example.com',[conf_settings.EMAIL_RECEPIENT], fail_silently=True)
-        return [set_cold_water(False), set_hot_water(False)]
+        return [set_cold_water(False), set_hot_water(False), 
+                    set_boiler(False), set_washing_machine(False)]
         
 @return_list
 def handle_cold_water_detector(response):
@@ -133,15 +134,19 @@ def handle_bedroom_temperature_detector(response):
 def handle_bathroom_light(response):
 
     setting = get_setting('bathroom_light')
+    current_state = get_sensors_dict(response)['bathroom_light']['value']
 
-    if setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
+    if setting is not None and not get_sensors_dict(response)['smoke_detector']['value'] and \
+        setting != current_state:
         return [set_bathroom_light(bool(setting))]
 
 @return_list
 def handle_bedroom_light(response):
     setting = get_setting('bedroom_light')
+    current_state = get_sensors_dict(response)['bedroom_light']['value']
 
-    if setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
+    if setting is not None and not get_sensors_dict(response)['smoke_detector']['value'] and \
+        setting != current_state:
         return [set_bedroom_light(bool(setting))]
 
 ###################################################
@@ -155,14 +160,13 @@ def send_post(list_of_dicts):
     headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}
     contrs = {"controllers": list_of_dicts}
     text = json.dumps(contrs)
-    print(text)
     r = requests.post(conf_settings.SMART_HOME_API_URL, headers=headers, data=text)
 
 def set_boiler(state):
     return post_sensor("boiler",state)
 
 def set_washing_machine(state):
-    return post_sensor("washing_machine",state)
+    return post_sensor("washing_machine",'on' if state else 'off')
 
 
 def get_setting(setting_name):
@@ -202,13 +206,10 @@ def smart_home_manager():
     headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}  
     r = requests.get(conf_settings.SMART_HOME_API_URL, headers=headers)
 
-    send_post(handle_leak_detector(r).extend(
-                handle_cold_water_detector(r).extend(
-                    handle_boiler_temperature_detector(r).extend(
-                        handle_curtains_detector(r).extend(
-                            handle_smoke_detector(r).extend(
-                                handle_bedroom_temperature_detector(r).extend(
-                                    handle_bedroom_light(r).extend(
-                                        handle_bathroom_light(r))))))))
+    send_post(handle_leak_detector(r) + handle_cold_water_detector(r) + 
+                handle_boiler_temperature_detector(r) + 
+                handle_curtains_detector(r) + 
+                handle_smoke_detector(r) + 
+                handle_bedroom_temperature_detector(r) +
+                handle_bedroom_light(r) + handle_bathroom_light(r)
                 )
-    

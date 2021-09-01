@@ -8,6 +8,12 @@ from django.core.mail import send_mail
 import requests
 import json
 
+def return_list(f):
+    def wrapper(*args, **kwargs):
+        ret = f(*args, **kwargs)
+        return ret if ret is not None else []
+    return wrapper
+
 def get_sensors_dict(response):
     all_states = json.loads(response.text)
     all_states['data']
@@ -15,6 +21,8 @@ def get_sensors_dict(response):
     #                'created': item['created'], 'updated': item['updated']} for item in all_states['data']}
     return {item["name"]: {'value': item["value"]} for item in all_states['data']}
     
+
+@return_list
 def handle_leak_detector(response):
     '''
     Если есть протечка воды (leak_detector=true), 
@@ -27,9 +35,9 @@ def handle_leak_detector(response):
     if leak_detector['value']:
         send_mail('coursera smart house message', 'Attention: leak_detector = True ',
             'from@example.com',[conf_settings.EMAIL_RECEPIENT], fail_silently=True)
-        set_cold_water(False)
-        set_hot_water(False)
+        return [set_cold_water(False), set_hot_water(False)]
         
+@return_list
 def handle_cold_water_detector(response):
     '''
     Если холодная вода (cold_water) закрыта, немедленно выключить бойлер (boiler) 
@@ -40,11 +48,10 @@ def handle_cold_water_detector(response):
     detector = get_sensors_dict(response)['cold_water']
     smoke_detector = get_sensors_dict(response)['smoke_detector']
 
-    
     if not detector['value']:
-        set_boiler(False)
-        set_washing_machine(False)
-        
+        return [set_boiler(False), set_washing_machine(False)]
+
+@return_list
 def handle_boiler_temperature_detector(response):
     '''
     Если горячая вода имеет температуру (boiler_temperature) меньше чем hot_water_target_temperature - 10%,
@@ -56,16 +63,14 @@ def handle_boiler_temperature_detector(response):
     hot_water_target_temperature = get_hot_water_target_temperature()
     smoke_detector = get_sensors_dict(response)['smoke_detector']
 
-    
     if detector['value'] < 0.9*hot_water_target_temperature and \
         get_sensors_dict(response)['cold_water']['value'] and not smoke_detector['value']:
-        set_boiler(True)
+        return set_boiler(True)
                     
     if detector['value'] >= 1.1*hot_water_target_temperature:
-        set_boiler(False)
-
+        return set_boiler(False)
         
-        
+@return_list
 def handle_curtains_detector(response):
     '''
     Если шторы частично открыты (curtains == “slightly_open”), то они находятся на ручном управлении -
@@ -84,11 +89,12 @@ def handle_curtains_detector(response):
         return
                     
     if outdoor_light['value'] < 50 and not bedroom_light['value']:
-        set_curtains('open')
+        return [set_curtains('open')]
 
     if outdoor_light['value'] > 50 or bedroom_light['value']:
-        set_curtains('close')
-        
+        return [set_curtains('close')]
+
+@return_list
 def handle_smoke_detector(response):
     '''
     Если обнаружен дым (smoke_detector), немедленно выключить следующие приборы 
@@ -98,13 +104,13 @@ def handle_smoke_detector(response):
     smoke_detector = get_sensors_dict(response)['smoke_detector']
 
     if smoke_detector['value']:
-        set_air_conditioner(False)
-        set_bedroom_light(False)
-        set_bathroom_light(False)
-        set_boiler(False)
-        set_washing_machine(False)
+        return [set_air_conditioner(False),
+                set_bedroom_light(False),
+                set_bathroom_light(False),
+                set_boiler(False),
+                set_washing_machine(False)]
        
-    
+@return_list
 def handle_bedroom_temperature_detector(response):
     '''
     Если температура в спальне (bedroom_temperature) поднялась выше bedroom_target_temperature + 10% -
@@ -118,31 +124,38 @@ def handle_bedroom_temperature_detector(response):
     bedroom_temperature = get_sensors_dict(response)['bedroom_temperature']
     
     if bedroom_temperature['value'] > bedroom_target_temperature*1.1 and not smoke_detector['value']:
-        set_air_conditioner(True)
+        return [set_air_conditioner(True)]
 
     if bedroom_temperature['value'] < bedroom_target_temperature*0.9:
-        set_air_conditioner(False)
+        return [set_air_conditioner(False)]
 
-
+@return_list
 def handle_bathroom_light(response):
 
     setting = get_setting('bathroom_light')
 
     if Setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
-        set_bathroom_light(bool(setting))
+        return [set_bathroom_light(bool(setting))]
 
-
+@return_list
 def handle_bedroom_light(response):
     setting = get_setting('bedroom_light')
 
     if Setting is not None and not get_sensors_dict(response)['smoke_detector']['value']:
-        set_bedroom_light(bool(setting))
+        return [set_bedroom_light(bool(setting))]
 
 ###################################################
 def post_sensor(name, value):
+    return {'name': name, 'value': value}
+
+def send_post(list_of_dicts):
+    if list_of_dicts is None or len(list_of_dicts)==0:
+        return
+        
     headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}
-    data = {'name': name, 'value': value}
-    text = '{"controllers": ['+json.dumps(data)+']}'
+    contrs = {"controllers": list_of_dicts}
+    text = json.dumps(contrs)
+    print(text)
     r = requests.post(conf_settings.SMART_HOME_API_URL, headers=headers, data=text)
 
 def set_boiler(state):
@@ -188,14 +201,14 @@ def smart_home_manager():
 
     headers = {'Authorization': 'Bearer {}'.format(conf_settings.SMART_HOME_ACCESS_TOKEN)}  
     r = requests.get(conf_settings.SMART_HOME_API_URL, headers=headers)
-      
-    handle_leak_detector(r)
-    handle_cold_water_detector(r)
-    handle_boiler_temperature_detector(r)
-    handle_curtains_detector(r)
-    handle_smoke_detector(r)
-    handle_bedroom_temperature_detector(r)
-    handle_bedroom_light(r)
-    handle_bathroom_light(r)
 
+    send_post(handle_leak_detector(r).extend(
+                handle_cold_water_detector(r).extend(
+                    handle_boiler_temperature_detector(r).extend(
+                        handle_curtains_detector(r).extend(
+                            handle_smoke_detector(r).extend(
+                                handle_bedroom_temperature_detector(r).extend(
+                                    handle_bedroom_light(r).extend(
+                                        handle_bathroom_light(r))))))))
+                )
     

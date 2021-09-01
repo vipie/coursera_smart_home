@@ -5,7 +5,7 @@ from django.conf import settings
 
 @pytest.fixture
 def response_ok():
-    with open('tests/responses/ok.json') as f:
+    with open('./tests/responses/ok.json') as f:
         return json.load(f)
 
 class TestViews():

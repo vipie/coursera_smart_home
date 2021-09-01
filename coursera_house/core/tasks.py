@@ -11,8 +11,9 @@ import json
 def get_sensors_dict(response):
     all_states = json.loads(response.text)
     all_states['data']
-    return {item["name"]: {'value': item["value"], \
-                    'created': item['created'], 'updated': item['updated']} for item in all_states['data']}
+    #return {item["name"]: {'value': item["value"], \
+    #                'created': item['created'], 'updated': item['updated']} for item in all_states['data']}
+    return {item["name"]: {'value': item["value"]} for item in all_states['data']}
     
 def handle_leak_detector(response):
     '''
@@ -26,7 +27,7 @@ def handle_leak_detector(response):
     if leak_detector['value']:
         send_mail('coursera smart house message', 'Attention: leak_detector = True ',
             'from@example.com',[conf_settings.EMAIL_RECEPIENT], fail_silently=True)
-        set_close_water(False)
+        set_cold_water(False)
         set_hot_water(False)
         
 def handle_cold_water_detector(response):
@@ -171,7 +172,15 @@ def set_bathroom_light(state):
     
 def set_bedroom_light(state):
     post_sensor("bedroom_light",state)
+        
+def set_cold_water(state):
+    post_sensor("cold_water",state)
 
+def set_hot_water(state):
+    post_sensor("hot_water",state)
+
+def set_curtains(state):
+    post_sensor("curtains",state)
 
 @task()
 def smart_home_manager():
